@@ -1,44 +1,59 @@
-var builder = WebApplication.CreateBuilder(args);
+using Microsoft.AspNetCore.Mvc;
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 
-var summaries = new[]
+List<Product> products = new()
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    new Product { Id = 1, Name = "Laptop", Price = 1200 },
+    new Product { Id = 2, Name = "Phone", Price = 800 }
 };
 
-app.MapGet("/weatherforecast", () =>
+// Get all products
+app.MapGet("/products", () => Results.Ok(products));
+
+// Get product by ID
+app.MapGet("/products/{id:int}", (int id) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    var product = products.Find(p => p.Id == id);
+    return product is not null ? Results.Ok(product) : Results.NotFound();
+});
+
+// Create a new product
+app.MapPost("/products", ([FromBody] Product product) =>
+{
+    products.Add(product);
+    return Results.Created($"/products/{product.Id}", product);
+});
+
+// Delete a product
+app.MapDelete("/products/{id:int}", (int id) =>
+{
+    var product = products.Find(p => p.Id == id);
+    if (product is not null)
+    {
+        products.Remove(product);
+        return Results.NoContent();
+    }
+    return Results.NotFound();
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+// Define the Product model
+record Product
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
 }
